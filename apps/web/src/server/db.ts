@@ -99,7 +99,7 @@ function open(path: string): DatabaseSync {
 const g = globalThis as unknown as { __nexoDb?: DatabaseSync };
 
 export function db(): DatabaseSync {
-  g.__nexoDb ??= open(resolve(process.cwd(), env().WEB_DB_PATH));
+  g.__nexoDb ??= open(resolve(/* turbopackIgnore: true */ process.cwd(), env().WEB_DB_PATH));
   return g.__nexoDb;
 }
 

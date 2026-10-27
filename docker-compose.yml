@@ -1,0 +1,12 @@
+services:
+  nexo-assist:
+    build: .
+    env_file: .env
+    ports:
+      - "127.0.0.1:3000:3000" # exposto só localmente; o Nginx/Cloudflare faz o HTTPS na frente
+    volumes:
+      - nexo-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  nexo-data:

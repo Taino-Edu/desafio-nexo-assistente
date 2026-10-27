@@ -4,7 +4,7 @@ import nextEnv from "@next/env";
 import { z } from "zod";
 
 // Um único .env na raiz do monorepo serve aos dois apps.
-nextEnv.loadEnvConfig(resolve(process.cwd(), "../.."), process.env.NODE_ENV !== "production");
+nextEnv.loadEnvConfig(resolve(/* turbopackIgnore: true */ process.cwd(), "../.."), process.env.NODE_ENV !== "production");
 
 // Configuração validada uma vez. Chaves ficam só no servidor: nada aqui é
 // prefixado com NEXT_PUBLIC_, então não vai para o navegador.
@@ -14,6 +14,8 @@ const schema = z.object({
   NEXO_MODEL: z.string().default("gemini-flash-lite-latest"),
   NEXO_FALLBACK_MODEL: z.string().default("gemini-3.5-flash"),
   NEXO_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.6),
+  /** Teto de respostas do agent por dia, somando todos os usuários (protege a chave). */
+  NEXO_DAILY_TURN_LIMIT: z.coerce.number().int().min(1).default(500),
   SESSION_SECRET: z.string().min(16, "SESSION_SECRET precisa de pelo menos 16 caracteres"),
   WEB_DB_PATH: z.string().default("../../data/web.db"),
   TICKETS_URL: z.string().url().default("http://127.0.0.1:4001"),

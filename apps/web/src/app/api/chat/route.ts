@@ -10,6 +10,7 @@ import {
   withLiveDrafts,
 } from "@/server/store";
 import { rateLimit } from "@/server/rate-limit";
+import { env } from "@/server/env";
 
 // GET: estado da conversa do funcionário logado (usado no carregamento e no
 // polling enquanto um analista atende). POST: envia uma mensagem e devolve a
@@ -34,6 +35,12 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
   if (!rateLimit(`chat:${user.employee.id}`, 12, 60_000)) {
     return Response.json({ error: "rate_limited", message: "Muitas mensagens em pouco tempo. Espere um pouco." }, { status: 429 });
+  }
+  if (!rateLimit("chat:global", env().NEXO_DAILY_TURN_LIMIT, 24 * 60 * 60 * 1000)) {
+    return Response.json(
+      { error: "daily_limit", message: "O limite diário de uso da demonstração foi atingido. Tente amanhã." },
+      { status: 429 },
+    );
   }
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "bad_request" }, { status: 400 });

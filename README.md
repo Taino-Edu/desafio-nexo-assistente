@@ -121,13 +121,12 @@ Cada mensagem do funcionário gera um **turno**:
 
 ### Escolha do modelo
 
-**Gemini Flash** (`NEXO_MODEL`, padrão `gemini-3.8-flash`):
+**Gemini Flash-Lite** como principal e **Gemini 3.5 Flash** como reserva (`NEXO_MODEL` e `NEXO_FALLBACK_MODEL`):
 
-- é rápido e barato, o que importa num chat com 2.000 funcionários ("custo por conversa");
-- usa ferramentas bem;
-- o raciocínio interno fica desligado (ou no nível baixo nos modelos 3.x), porque o trabalho pesado de regra está no código.
-
-O Mastra deixa trocar de provedor mudando uma linha.
+- Escolhi pelo `pnpm eval`: o Flash-Lite respondeu em **2 a 7 s por turno**, contra 13 a 16 s do 3.5 Flash, com o mesmo acerto nos cenários. Num chat isso pesa, e o custo por conversa é menor.
+- O raciocínio interno fica no nível mínimo, porque o trabalho pesado de regra está no código, não no modelo.
+- Se o principal falhar ou demorar mais de 15 s para começar a responder (sobrecarga acontece), o Mastra passa para o reserva no mesmo turno. A decisão registra qual modelo respondeu de fato.
+- O Mastra deixa trocar de provedor mudando uma linha.
 
 **Custo por conversa:**
 
@@ -154,7 +153,10 @@ O Mastra deixa trocar de provedor mudando uma linha.
 - **Avaliação com o modelo real** (`pnpm eval`).
   - São 12 cenários do PRD: dúvida resolvida pela central, erro 809 no Windows 10 (resolve) e no 11 (abre chamado), status sem número, chamado vencido, privacidade, RH fora do escopo, pedido de analista, duplicidade, reabertura, complemento e abertura em três turnos.
   - Cada cenário confere intenção, ferramentas usadas ou proibidas e o texto final.
-  - É o que eu rodo ao mexer no prompt ou trocar o modelo.
+  - É o que eu rodo ao mexer no prompt ou trocar o modelo. A última rodada passou nos **12 de 12** cenários.
+  - Ela já pegou problemas reais, corrigidos com teste:
+    - a duplicidade não reconhecia "VPN caindo" como o mesmo problema de "VPN cai a cada 10 minutos";
+    - o modelo supunha quem era afetado em vez de perguntar. Por isso `preparar_rascunho` passou a aceitar "não informado" e a devolver o que falta perguntar.
 
 ## Segurança e privacidade
 
@@ -165,6 +167,22 @@ O Mastra deixa trocar de provedor mudando uma linha.
   - limite de 30 mensagens por sessão;
   - limite de taxa por funcionário (12 mensagens por minuto);
   - teto de passos e de tokens de saída por turno.
+
+## Deploy
+
+A imagem Docker sobe os dois processos (o serviço de chamados escuta só dentro do contêiner), com os bancos num volume:
+
+```bash
+cp .env.example .env   # chave do Gemini, SESSION_SECRET e TICKETS_SERVICE_TOKEN fortes
+docker compose up -d --build
+```
+
+- A porta 3000 fica presa ao `127.0.0.1`; o Nginx (ou o Cloudflare Tunnel) faz o HTTPS na frente. O cookie de sessão é `Secure` em produção.
+- **Proteção contra abuso e custo**:
+  - 30 mensagens por sessão;
+  - 12 mensagens por minuto por funcionário;
+  - um teto diário global de respostas do agente (`NEXO_DAILY_TURN_LIMIT`), para a chave nunca gerar uma conta inesperada.
+- O plano gratuito do Gemini aceita cerca de 15 requisições por minuto (cada resposta usa de 2 a 3). Com o modelo reserva configurado, um pico no principal cai no outro, que tem cota própria.
 
 ## Principais trade-offs
 
