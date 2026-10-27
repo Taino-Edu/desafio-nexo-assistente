@@ -6,7 +6,6 @@ import {
   formatBrt,
   handoffDeadline,
   type Employee,
-  type Priority,
   type Queue,
   type TicketView,
 } from "@nexo/shared";
@@ -51,7 +50,7 @@ export async function executeDraft(draft: Draft, client: TicketsClient): Promise
       priority: draft.priority,
       affected: draft.affected,
     });
-    const due = ticket.dueAt ? ` (até ${formatBrt(ticket.dueAt, dueFormat(ticket.priority))})` : "";
+    const due = ticket.dueAt ? ` (até ${formatDue(ticket.dueAt)})` : "";
     text = `Pronto: abri o chamado ${ticket.id} com prioridade ${PRIORITY_LABEL[ticket.priority].toLowerCase()}. Um analista fala com você em até ${SLA[ticket.priority].label}${due}.`;
   } else if (draft.kind === "reabrir") {
     ticket = await client.reopen(draft.ticketId!, draft.note ?? draft.description);
@@ -65,9 +64,10 @@ export async function executeDraft(draft: Draft, client: TicketsClient): Promise
   return { ticket, text, card: { kind: "ticket", ticket: toSummary(ticket) } };
 }
 
-/** Prazo curto ("13:43") quando é no mesmo dia, com data quando não é. */
-export function dueFormat(priority: Priority) {
-  return priority === "alta" || priority === "critica" ? { time: true, date: false } : { time: true, date: true };
+/** "13:43" se o prazo é hoje; "28 out, 10:54" se não é. */
+export function formatDue(dueIso: string, now = new Date()): string {
+  const sameDay = formatBrt(dueIso, { date: true }) === formatBrt(now.toISOString(), { date: true });
+  return formatBrt(dueIso, sameDay ? { time: true } : { time: true, date: true });
 }
 
 export const HANDOFF_REASONS = {

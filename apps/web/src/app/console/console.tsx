@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { initials, PRIORITY_LABEL, STATUS_LABEL, isOpen, type Analyst, type Employee } from "@nexo/shared";
 import type { ChatMessage, ConversationSummary, Decision, TicketSummary } from "@/lib/types";
-import { listTime, sameDayLabel, shortDate, time, STATUS_DOT, STATUS_TEXT } from "@/lib/format";
+import { dueLabel, listTime, sameDayLabel, shortDate, time, STATUS_DOT, STATUS_TEXT } from "@/lib/format";
 import { logout } from "@/app/login/actions";
 import { NexoMark } from "@/components/nexo-mark";
 import { AgentStatusLine } from "@/components/decision";
@@ -33,6 +33,8 @@ type Detail = {
   messages: ChatMessage[];
   decisions: Decision[];
   tickets: TicketSummary[] | null;
+  /** Lista mantida da última consulta porque o legado não respondeu agora. */
+  ticketsStale?: boolean;
 };
 
 type Filter = "todas" | "para_voce" | "agent" | "minhas";
@@ -87,7 +89,15 @@ export function Console({ analyst, initial }: { analyst: Analyst; initial: Conve
 
   const loadDetail = useCallback(async (id: string) => {
     const res = await fetch(`/api/console/conversations/${id}`, { cache: "no-store" });
-    if (res.ok) setDetail((await res.json()) as Detail);
+    if (!res.ok) return;
+    const next = (await res.json()) as Detail;
+    // Se o legado cair por alguns segundos, mantém a última lista de chamados
+    // em vez de esvaziar o painel.
+    setDetail((prev) =>
+      next.tickets === null && prev?.conversation.id === id && prev.tickets
+        ? { ...next, tickets: prev.tickets, ticketsStale: true }
+        : next,
+    );
   }, []);
 
   useEffect(() => {
@@ -134,6 +144,7 @@ export function Console({ analyst, initial }: { analyst: Analyst; initial: Conve
         body: JSON.stringify(body),
       });
       if (!res.ok) setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Não foi possível concluir.");
+      else if (body.action === "assumir") setFilter("minhas");
       await Promise.all([loadDetail(selectedId), loadList()]);
       return res.ok;
     },
@@ -448,7 +459,7 @@ function ConversationView({
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="text-[14.5px] font-semibold">{first} espera um atendente</span>
               <span className="text-[12.5px] text-ink-3">
-                Agent pausado{c.transferDeadline ? ` · até ${time(c.transferDeadline)}` : ""}
+                Agent pausado{c.transferDeadline ? ` · até ${dueLabel(c.transferDeadline)}` : ""}
                 {c.transferQueue ? ` · Suporte ${c.transferQueue}` : ""}
               </span>
             </span>
@@ -532,7 +543,9 @@ function TicketPanel({ detail, onClose }: { detail: Detail; onClose: () => void 
         <span className="flex flex-1 flex-col gap-0.5">
           <span className="text-[15.5px] font-semibold">Chamados de {first}</span>
           <span className="text-[12.5px] text-ink-3">
-            {tickets ? `${openCount} abertos · ${tickets.length - openCount} encerrados` : "sistema de chamados indisponível"}
+            {tickets
+              ? `${openCount} abertos · ${tickets.length - openCount} encerrados${detail.ticketsStale ? " · atualizando…" : ""}`
+              : "sistema de chamados indisponível"}
           </span>
         </span>
         <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-full text-ink-2 hover:bg-desk" aria-label="Fechar">

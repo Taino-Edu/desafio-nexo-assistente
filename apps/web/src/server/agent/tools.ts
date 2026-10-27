@@ -21,7 +21,7 @@ import { INTENTS, type Card, type Draft } from "@/lib/types";
 import { searchArticles } from "../kb";
 import { getDraft, nextDraftId, saveDraft, supersedePendingDrafts, updateConversation } from "../store";
 import { TicketConflictError, TicketNotFoundError, TicketsUnavailableError } from "../tickets-client";
-import { HANDOFF_REASONS, dueFormat, executeDraft, handoff, toSummary } from "../service-desk";
+import { HANDOFF_REASONS, executeDraft, formatDue, handoff, toSummary } from "../service-desk";
 import type { TurnContext } from "./context";
 
 // Ferramentas do agent. Cada uma registra o que fez (rótulo, entrada, resumo,
@@ -310,7 +310,7 @@ export function buildTools(ctx: TurnContext) {
             prioridade: PRIORITY_LABEL[priority],
             motivo_prioridade: reason,
             prazo: SLA[priority].label,
-            resposta_ate: formatBrt(dueAt, dueFormat(priority)),
+            resposta_ate: formatDue(dueAt, now),
             proximo_passo: "Peça para a pessoa conferir e confirmar. Não crie antes disso.",
           },
         };

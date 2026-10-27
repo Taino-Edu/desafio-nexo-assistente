@@ -45,6 +45,11 @@ export function ago(iso: string, now = new Date()): string {
   return days === 1 ? "há 1 dia" : `há ${days} dias`;
 }
 
+/** Prazo: "13:43" se for hoje, "28 out, 08:55" se não for. */
+export function dueLabel(iso: string, now = new Date()): string {
+  return dayKey(new Date(iso)) === dayKey(now) ? time(iso) : dateTime(iso);
+}
+
 export function sameDayLabel(iso: string, now = new Date()): string {
   return dayKey(new Date(iso)) === dayKey(now) ? "Hoje" : shortDate(iso);
 }

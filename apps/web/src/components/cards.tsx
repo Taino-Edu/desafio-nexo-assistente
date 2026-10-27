@@ -3,7 +3,7 @@
 import { ArrowRightLeft, Headset } from "lucide-react";
 import { AFFECTED_LABEL, PRIORITY_LABEL, STATUS_LABEL, type Priority } from "@nexo/shared";
 import type { Card, Draft, TicketSummary } from "@/lib/types";
-import { ago, dateTime, shortDate, time, PRIORITY_DOT, STATUS_DOT, STATUS_TEXT } from "@/lib/format";
+import { ago, dateTime, dueLabel, shortDate, PRIORITY_DOT, STATUS_DOT, STATUS_TEXT } from "@/lib/format";
 
 // Cartões que o agent mostra no chat (Telas 2 e 3 do protótipo).
 
@@ -155,7 +155,7 @@ export function DraftCard({
         <div className="flex flex-wrap gap-x-6 gap-y-3 border-t border-rule pt-3">
           <Field label="Categoria">{draft.subcategory ? `${draft.category} › ${draft.subcategory}` : draft.category}</Field>
           <Field label="Prioridade">
-            <PriorityValue priority={draft.priority} due={draft.dueAt ? (shortDate(draft.dueAt) === shortDate(new Date().toISOString()) ? time(draft.dueAt) : dateTime(draft.dueAt)) : null} />
+            <PriorityValue priority={draft.priority} due={draft.dueAt ? dueLabel(draft.dueAt) : null} />
           </Field>
           <Field label="Afetados">{AFFECTED_LABEL[draft.affected]}</Field>
         </div>
@@ -235,7 +235,7 @@ export function HandoffCard({ queue, deadline, reason }: { queue: string; deadli
       <span className="flex flex-col">
         <span className="font-semibold">Transferido para o Suporte {queue}</span>
         <span className="text-ink-3">
-          {reason} · um analista assume até {time(deadline)}
+          {reason} · um analista assume até {dueLabel(deadline)}
         </span>
       </span>
       <ArrowRightLeft size={16} className="ml-auto text-warning-text" />

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Headset, Info, UserRound } from "lucide-react";
 import type { Card, ChatMessage, ConversationStatus, Decision, StreamEvent, TicketSummary } from "@/lib/types";
-import { time } from "@/lib/format";
+import { dueLabel } from "@/lib/format";
 import { TopBar } from "@/components/employee-shell";
 import { AgentStatusLine } from "@/components/decision";
 import { DraftCard, HandoffCard, OptionsCard, TicketCard, TicketListCard, cardKey } from "@/components/cards";
@@ -374,7 +374,7 @@ function WaitingBanner({ status, deadline }: { status: ConversationStatus; deadl
     <p className="mb-2 flex items-center gap-2.5 rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-warning-text">
       {status === "waiting" ? <Headset size={15} /> : <UserRound size={15} />}
       {status === "waiting"
-        ? `Um analista vai assumir esta conversa${deadline ? ` até ${time(deadline)}` : ""}. O assistente está pausado; pode deixar informações aqui.`
+        ? `Um analista vai assumir esta conversa${deadline ? ` até ${dueLabel(deadline)}` : ""}. O assistente está pausado; pode deixar informações aqui.`
         : "Um analista está atendendo você agora."}
     </p>
   );
