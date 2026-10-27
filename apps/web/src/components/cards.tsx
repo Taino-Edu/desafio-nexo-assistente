@@ -134,7 +134,6 @@ export function DraftCard({
     substituido: { dot: "bg-ink-3", text: "text-ink-3", label: "Substituído por outro rascunho" },
   }[draft.status];
   const pending = draft.status === "pendente" && !disabled;
-  const sameDay = draft.priority === "alta" || draft.priority === "critica";
 
   return (
     <div className={cardShell}>
@@ -156,7 +155,7 @@ export function DraftCard({
         <div className="flex flex-wrap gap-x-6 gap-y-3 border-t border-rule pt-3">
           <Field label="Categoria">{draft.subcategory ? `${draft.category} › ${draft.subcategory}` : draft.category}</Field>
           <Field label="Prioridade">
-            <PriorityValue priority={draft.priority} due={draft.dueAt ? (sameDay ? time(draft.dueAt) : dateTime(draft.dueAt)) : null} />
+            <PriorityValue priority={draft.priority} due={draft.dueAt ? (shortDate(draft.dueAt) === shortDate(new Date().toISOString()) ? time(draft.dueAt) : dateTime(draft.dueAt)) : null} />
           </Field>
           <Field label="Afetados">{AFFECTED_LABEL[draft.affected]}</Field>
         </div>

@@ -121,7 +121,7 @@ Cada mensagem do funcionário gera um **turno**:
 
 ### Escolha do modelo
 
-**Gemini Flash** (`NEXO_MODEL`, padrão `gemini-2.5-flash`):
+**Gemini Flash** (`NEXO_MODEL`, padrão `gemini-3.8-flash`):
 
 - é rápido e barato, o que importa num chat com 2.000 funcionários ("custo por conversa");
 - usa ferramentas bem;

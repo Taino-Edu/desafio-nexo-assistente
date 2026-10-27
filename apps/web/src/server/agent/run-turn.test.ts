@@ -54,14 +54,14 @@ beforeEach(() => {
 });
 
 describe("turno do agent", () => {
-  it("força registrar a decisão no primeiro passo e grava tudo", async () => {
+  it("decisão e primeira ação no mesmo passo, com tudo gravado", async () => {
     const r = await turn(ana, "Qual o status do meu chamado?", [
-      { tools: [decide("consultar_chamado")] },
-      { tools: [{ name: "listar_meus_chamados", input: { escopo: "abertos" } }] },
+      { tools: [decide("consultar_chamado"), { name: "listar_meus_chamados", input: { escopo: "abertos" } }] },
       { text: "Você tem 3 chamados abertos. Sobre qual deles quer saber?" },
     ]);
 
-    expect(r.calls[0]?.toolChoice).toMatchObject({ type: "tool", toolName: "registrar_decisao" });
+    expect(r.calls[0]?.toolChoice).toMatchObject({ type: "required" });
+    expect(r.calls).toHaveLength(2);
     expect(r.labels).toContain("consultou seus chamados");
     const list = r.cards.find((c): c is Extract<Card, { kind: "ticket-list" }> => c.kind === "ticket-list");
     expect(list?.selectable).toBe(true);
@@ -71,6 +71,15 @@ describe("turno do agent", () => {
     expect(r.done?.decision.steps.map((s) => s.tool)).toEqual(["listar_meus_chamados"]);
     expect(r.done?.message.text).toBe("Você tem 3 chamados abertos. Sobre qual deles quer saber?");
     expect(listDecisions(getOrCreateActiveConversation("u-ana").id)).toHaveLength(1);
+  });
+
+  it("ferramenta que grava é barrada se a decisão não foi registrada", async () => {
+    const r = await turn(ana, "Quero um analista", [
+      { tools: [{ name: "transferir_para_analista", input: { motivo: "pedido_do_funcionario", resumo: "Pediu um analista direto." } }] },
+      { text: "ok" },
+    ]);
+    expect(r.done?.decision.steps[0]).toMatchObject({ ok: false, summary: "barrado: decisão não registrada" });
+    expect(getOrCreateActiveConversation("u-ana").status).toBe("agent");
   });
 
   it("não mostra chamado de outra pessoa, mesmo se o modelo pedir", async () => {
@@ -86,7 +95,12 @@ describe("turno do agent", () => {
   });
 
   it("com confiança baixa o código interrompe e transfere para um analista", async () => {
-    const r = await turn(ana, "asdf qwer o sistema lá", [{ tools: [decide("nao_entendi", 0.3)] }, { text: "isto não deveria aparecer" }]);
+    const r = await turn(ana, "asdf qwer o sistema lá", [
+      // Mesmo com uma ação na mesma resposta, nada executa depois da barreira.
+      { tools: [decide("nao_entendi", 0.3), { name: "listar_meus_chamados", input: { escopo: "abertos" } }] },
+      { text: "isto não deveria aparecer" },
+    ]);
+    expect(r.cards.filter((c) => c.kind === "ticket-list")).toHaveLength(0);
     const conversation = getOrCreateActiveConversation("u-ana");
     expect(conversation.status).toBe("waiting");
     expect(conversation.transferReason).toBe("baixa_confianca");
@@ -104,9 +118,9 @@ describe("turno do agent", () => {
       descricao: "Desde ontem o notebook com Windows 11 não conecta na VPN e mostra o erro 809.",
       categoria: "Rede e VPN",
       afetados: "eu",
-      impede_trabalho: true,
-      compromisso_hoje: true,
-      tem_alternativa: false,
+      impede_trabalho: "sim",
+      compromisso_hoje: "sim",
+      tem_alternativa: "nao",
     };
     const first = await turn(ana, "VPN com erro 809, tenho reunião às 14h", [
       { tools: [decide("abrir_chamado")] },
@@ -131,6 +145,33 @@ describe("turno do agent", () => {
     expect(pendingDraft(conversationId)).toBeNull();
   });
 
+  it("não monta rascunho com fatos que a pessoa não informou", async () => {
+    const r = await turn(ana, "Meu notebook não liga", [
+      { tools: [decide("abrir_chamado")] },
+      {
+        tools: [
+          {
+            name: "preparar_rascunho",
+            input: {
+              tipo: "INC",
+              titulo: "Notebook não liga",
+              descricao: "O notebook não liga desde hoje de manhã.",
+              categoria: "Hardware",
+              afetados: "nao_informado",
+              impede_trabalho: "sim",
+              compromisso_hoje: "nao_informado",
+              tem_alternativa: "nao_informado",
+            },
+          },
+        ],
+      },
+      { text: "Quem é afetado?" },
+    ]);
+    expect(r.labels).toContain("verificou o que falta");
+    expect(r.cards.some((c) => c.kind === "draft")).toBe(false);
+    expect(r.done?.decision.steps[0]?.summary).toBe("faltam: afetados, compromisso_hoje");
+  });
+
   it("aponta o chamado aberto em vez de duplicar", async () => {
     createSession("u-diego", "employee");
     const r = await turn(diego, "Minha VPN fica caindo", [
@@ -145,9 +186,9 @@ describe("turno do agent", () => {
               descricao: "A VPN conecta mas cai a cada poucos minutos.",
               categoria: "Rede e VPN",
               afetados: "eu",
-              impede_trabalho: false,
-              compromisso_hoje: false,
-              tem_alternativa: true,
+              impede_trabalho: "nao",
+              compromisso_hoje: "nao",
+              tem_alternativa: "sim",
             },
           },
         ],

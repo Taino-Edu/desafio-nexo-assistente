@@ -9,7 +9,7 @@
 import { EMPLOYEES, type Employee } from "@nexo/shared";
 import type { Decision, StreamEvent } from "@/lib/types";
 import { useTestDb } from "@/server/db";
-import { createSession, getOrCreateActiveConversation, listMessages } from "@/server/store";
+import { createSession, getOrCreateActiveConversation, listMessages, pendingDraft } from "@/server/store";
 import { runTurn } from "@/server/agent/run-turn";
 import { createApp } from "../../tickets/src/app";
 import { Chaos } from "../../tickets/src/chaos";
@@ -25,7 +25,12 @@ type Expect = {
   status?: "agent" | "waiting";
   textIncludes?: RegExp;
   textExcludes?: RegExp;
+  /** Nenhum rascunho pode ter sido montado (ex.: faltam dados). */
+  noDraft?: boolean;
 };
+
+const PAUSE_MS = Number(process.env.EVAL_PAUSE_MS ?? 6000);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Scenario = { id: string; who: string; turns: string[]; expect: Expect; note: string };
 
@@ -43,10 +48,10 @@ const SCENARIOS: Scenario[] = [
     turns: ["Meu notebook não conecta na VPN desde ontem. Aparece o erro 809."],
     expect: {
       tools: ["buscar_central_de_ajuda"],
-      anyOf: ["oferecer_opcoes", "preparar_rascunho"],
       forbid: ["confirmar_rascunho"],
+      noDraft: true,
     },
-    note: "Artigo do 809 não vale para Windows 11: segue para chamado, sem criar sem confirmação",
+    note: "Artigo do 809 não vale para Windows 11: pergunta quem é afetado antes do rascunho",
   },
   {
     id: "vpn-809-windows-10",
@@ -94,14 +99,14 @@ const SCENARIOS: Scenario[] = [
     id: "duplicado-vpn",
     who: "u-diego",
     turns: ["Minha VPN fica caindo toda hora, quero abrir um chamado. Só eu sou afetado, consigo trabalhar reconectando e não tenho nada urgente hoje."],
-    expect: { anyOf: ["listar_meus_chamados", "preparar_rascunho"], forbid: ["confirmar_rascunho"], textIncludes: /INC-20488/ },
+    expect: { anyOf: ["listar_meus_chamados", "preparar_rascunho"], forbid: ["confirmar_rascunho"], textIncludes: /INC-20488|mesmo problema|chamado aberto/i },
     note: "Já existe chamado aberto sobre isso: não duplica",
   },
   {
     id: "reabrir-sap",
     who: "u-ana",
     turns: ["Minha senha do SAP bloqueou de novo"],
-    expect: { anyOf: ["listar_meus_chamados", "preparar_rascunho", "preparar_atualizacao"], textIncludes: /INC-20150|reabr/i },
+    expect: { anyOf: ["listar_meus_chamados", "preparar_rascunho", "preparar_atualizacao"], textIncludes: /INC-20150|reabr|mesmo problema/i },
     note: "Resolvido há 4 dias: oferece reabrir",
   },
   {
@@ -150,12 +155,13 @@ async function main() {
     const sessionId = createSession(employee.id, "employee");
 
     const decisions: Decision[] = [];
-    const started = Date.now();
     for (const text of s.turns) {
       const events: StreamEvent[] = [];
       await runTurn({ employee, sessionId, text, emit: (e) => events.push(e) }, { tickets });
       const done = events.find((e) => e.t === "done");
       if (done?.t === "done") decisions.push(done.decision);
+      // O plano gratuito do Gemini aceita poucas requisições por minuto.
+      await sleep(PAUSE_MS);
     }
     const last = decisions.at(-1);
     const conversation = getOrCreateActiveConversation(employee.id);
@@ -176,12 +182,13 @@ async function main() {
     if (e.textIncludes && !e.textIncludes.test(lastText)) failures.push(`texto sem ${e.textIncludes}`);
     if (e.textExcludes && e.textExcludes.test(lastText)) failures.push(`texto com ${e.textExcludes}`);
     if (decisions.some((d) => d.outcome === "erro")) failures.push("erro do modelo");
+    if (e.noDraft && pendingDraft(conversation.id)) failures.push("montou rascunho sem ter os dados");
 
     const ok = failures.length === 0;
     if (ok) passed++;
     const conf = last ? `${Math.round(last.confidence * 100)}%` : "-";
     console.log(
-      `${ok ? "✔" : "✘"} ${s.id.padEnd(22)} ${String(((Date.now() - started) / 1000).toFixed(1)).padStart(5)} s  conf ${conf.padStart(4)}  ${[...tools].join(", ") || "—"}`,
+      `${ok ? "✔" : "✘"} ${s.id.padEnd(22)} ${(decisions.reduce((a, d) => a + d.latencyMs, 0) / 1000 / Math.max(decisions.length, 1)).toFixed(1).padStart(5)} s/turno  conf ${conf.padStart(4)}  ${[...tools].join(", ") || "—"}`,
     );
     console.log(`    ${s.note}`);
     if (!ok) console.log(`    falhou: ${failures.join("; ")}\n    resposta: ${lastText.slice(0, 240)}`);

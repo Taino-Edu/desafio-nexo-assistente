@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { Agent } from "@mastra/core/agent";
+import type { ModelWithRetries } from "@mastra/core/agent";
 import type { MastraModelConfig } from "@mastra/core/llm";
 import type { Employee } from "@nexo/shared";
 import type { Decision, DecisionOutcome, StreamEvent } from "@/lib/types";
@@ -31,8 +32,20 @@ const MAX_STEPS = 6;
 
 /** Opções de raciocínio por família: pouco raciocínio = resposta rápida e barata. */
 function thinkingOptions(model: string) {
-  if (model.startsWith("gemini-2.5")) return { thinkingConfig: { thinkingBudget: 0 } };
-  return { thinkingConfig: { thinkingLevel: "low" as const } };
+  if (model.startsWith("gemini-2.5")) return { google: { thinkingConfig: { thinkingBudget: 0 } } };
+  return { google: { thinkingConfig: { thinkingLevel: "minimal" as const } } };
+}
+
+/**
+ * Modelo principal e reserva. Se o principal falhar ou demorar para começar a
+ * responder (sobrecarga acontece), o Mastra passa para o reserva no mesmo turno.
+ */
+function models(config: ReturnType<typeof env>): ModelWithRetries[] {
+  return [config.NEXO_MODEL, config.NEXO_FALLBACK_MODEL].filter(Boolean).map((name) => ({
+    model: { id: `google/${name}` as `${string}/${string}`, apiKey: config.GOOGLE_GENERATIVE_AI_API_KEY },
+    maxRetries: 1,
+    providerOptions: thinkingOptions(name),
+  }));
 }
 
 /** Dependências trocáveis nos testes (modelo roteirizado, legado em memória). */
@@ -105,6 +118,8 @@ export async function runTurn(
   let text = "";
   let inputTokens = 0;
   let outputTokens = 0;
+  let modelCalls = 0;
+  const modelsUsed = new Set<string>();
   let failure: string | null = null;
 
   if (!deps.model && !config.GOOGLE_GENERATIVE_AI_API_KEY) {
@@ -114,11 +129,7 @@ export async function runTurn(
       id: "nexo-assist",
       name: "Nexo Assist",
       instructions: INSTRUCTIONS,
-      // Roteador de modelos do Mastra: "provedor/modelo" com a chave explícita.
-      model: (deps.model as MastraModelConfig | undefined) ?? {
-        id: `google/${config.NEXO_MODEL}` as `${string}/${string}`,
-        apiKey: config.GOOGLE_GENERATIVE_AI_API_KEY,
-      },
+      model: (deps.model as MastraModelConfig | undefined) ?? models(config),
       tools: buildTools(ctx),
     });
 
@@ -132,12 +143,18 @@ export async function runTurn(
         }),
         maxSteps: MAX_STEPS,
         abortSignal: ctx.abort.signal,
-        modelSettings: { temperature: 0.2, maxOutputTokens: 1024 },
-        providerOptions: { google: thinkingOptions(config.NEXO_MODEL) },
-        // Primeiro passo: obrigatoriamente registrar a decisão. É o que torna
-        // cada resposta auditável, e o que permite barrar decisões inseguras.
-        prepareStep: async ({ stepNumber }) =>
-          stepNumber === 0 ? { toolChoice: { type: "tool" as const, toolName: "registrar_decisao" } } : undefined,
+        modelSettings: {
+          temperature: 0.2,
+          maxOutputTokens: 1024,
+          timeout: { firstChunkMs: 15_000, totalMs: 60_000 },
+        },
+        // Primeiro passo: o modelo é obrigado a usar ferramentas, e as
+        // instruções pedem registrar_decisao primeiro, já acompanhada da
+        // primeira ação (uma ida ao modelo a menos). As ferramentas rodam em
+        // ordem, uma por vez, e as que gravam dados exigem a decisão registrada:
+        // assim a barreira de confiança vale antes de qualquer efeito.
+        prepareStep: async ({ stepNumber }) => (stepNumber === 0 ? { toolChoice: "required" as const } : undefined),
+        toolCallConcurrency: 1,
       });
 
       for await (const chunk of stream.fullStream) {
@@ -148,6 +165,10 @@ export async function runTurn(
           const usage = (chunk.payload.output as { usage?: { inputTokens?: number; outputTokens?: number } }).usage;
           inputTokens += usage?.inputTokens ?? 0;
           outputTokens += usage?.outputTokens ?? 0;
+          modelCalls++;
+          // Registra o modelo que respondeu de fato (pode ter sido o reserva).
+          const modelId = (chunk.payload as { response?: { modelId?: string } }).response?.modelId;
+          if (modelId) modelsUsed.add(modelId.replace(/^models\//, ""));
         } else if (chunk.type === "error") {
           throw chunk.payload.error;
         }
@@ -209,7 +230,9 @@ export async function runTurn(
     missingInfo: ctx.decision?.missingInfo ?? [],
     steps: ctx.steps,
     outcome,
-    model: deps.model ? "roteiro-de-teste" : config.NEXO_MODEL,
+    model: deps.model
+      ? "roteiro-de-teste"
+      : `${[...modelsUsed].join(" + ") || config.NEXO_MODEL}${modelCalls ? ` · ${modelCalls} chamada(s)` : ""}`,
     inputTokens,
     outputTokens,
     latencyMs: Date.now() - started,

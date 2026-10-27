@@ -131,6 +131,21 @@ describe("duplicidade", () => {
     expect(findDuplicate([old], draft, now)).toBeNull();
   });
 
+  it("reconhece o mesmo problema escrito de outro jeito (caso do Diego)", () => {
+    const vpn = ticket({ title: "VPN cai a cada 10 minutos", description: "A VPN conecta, mas cai a cada 10 minutos, e preciso reconectar." });
+    const dup = findDuplicate(
+      [vpn],
+      { category: "Rede e VPN", title: "VPN caindo toda hora", description: "A conexão da VPN fica caindo e tenho que ficar reconectando." },
+      now,
+    );
+    expect(dup?.ticket.id).toBe("INC-1");
+  });
+
+  it("uma palavra em comum não basta (notebook não liga x notebook lento)", () => {
+    const slow = ticket({ category: "Hardware", title: "Notebook lento após atualização do Windows", description: "Lentidão geral desde a atualização." });
+    expect(findDuplicate([slow], { category: "Hardware", title: "Notebook não liga", description: "O notebook não liga desde hoje de manhã." }, now)).toBeNull();
+  });
+
   it("assuntos diferentes na mesma categoria não são duplicados", () => {
     const other = ticket({ title: "Wi-Fi da sala 3 lento", description: "Sinal fraco na sala de reuniões" });
     expect(findDuplicate([other], draft, now)).toBeNull();

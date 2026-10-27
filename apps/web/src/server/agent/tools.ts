@@ -14,6 +14,7 @@ import {
   formatBrt,
   isOpen,
   ticketDueAt,
+  type Affected,
   type TicketView,
 } from "@nexo/shared";
 import { INTENTS, type Card, type Draft } from "@/lib/types";
@@ -30,7 +31,21 @@ import type { TurnContext } from "./context";
 type ToolOutput = Record<string, unknown>;
 type Outcome = { output: ToolOutput; labels: string[]; summary: string; cards?: Card[] };
 
-async function run(ctx: TurnContext, tool: string, input: unknown, fn: () => Promise<Outcome>): Promise<ToolOutput> {
+async function run(
+  ctx: TurnContext,
+  tool: string,
+  input: unknown,
+  fn: () => Promise<Outcome>,
+  opts: { writes?: boolean } = {},
+): Promise<ToolOutput> {
+  // Depois da barreira de confiança, nada mais executa neste turno.
+  if (ctx.gate) return { erro: "Turno interrompido." };
+  // Quem grava algo (rascunho, chamado, transferência) precisa ter registrado
+  // a decisão antes. Leituras podem vir na mesma resposta, para ganhar tempo.
+  if (opts.writes && !ctx.decision) {
+    ctx.steps.push({ tool, labels: [], input, ok: false, summary: "barrado: decisão não registrada", durationMs: 0 });
+    return { erro: "Chame registrar_decisao antes desta ferramenta." };
+  }
   const started = Date.now();
   ctx.retries = [];
   const retryNote = () => (ctx.retries.length ? ` (${ctx.retries.length} nova(s) tentativa(s): ${ctx.retries.join(", ")})` : "");
@@ -81,21 +96,38 @@ function brief(t: TicketView, now: Date) {
   };
 }
 
+// Os fatos que decidem a prioridade. "nao_informado" existe de propósito: é
+// mais fácil o modelo admitir que não sabe do que escolher entre sim e não, e
+// com ele o código sabe o que ainda falta perguntar em vez de deixar o modelo
+// supor.
+const fact = z.enum(["sim", "nao", "nao_informado"]);
 const draftFacts = {
-  afetados: z.enum(AFFECTED).describe("Quem é afetado: eu, equipe, empresa ou nao_sei"),
-  impede_trabalho: z.boolean().describe("A pessoa (ou o grupo) não consegue trabalhar por causa disso"),
-  compromisso_hoje: z.boolean().describe("Há reunião, entrega ou cliente em risco ainda hoje"),
-  tem_alternativa: z.boolean().describe("Existe um jeito razoável de contornar enquanto isso"),
+  afetados: z
+    .enum([...AFFECTED, "nao_informado"])
+    .describe("Quem é afetado, segundo a pessoa: eu, equipe, empresa, nao_sei (ela disse que não sabe) ou nao_informado"),
+  impede_trabalho: fact.describe("A pessoa disse que não consegue trabalhar por causa disso?"),
+  compromisso_hoje: fact.describe("A pessoa disse que há reunião, entrega ou cliente em risco ainda hoje?"),
+  tem_alternativa: fact.describe("Existe um jeito de contornar enquanto isso?"),
 };
+
+const FACT_QUESTIONS = {
+  afetados: "quem é afetado (Só eu, Minha equipe, Toda a empresa, Não sei)",
+  impede_trabalho: "se dá para trabalhar enquanto isso",
+  compromisso_hoje: "se há algum compromisso hoje que depende disso",
+} as const;
 
 export function buildTools(ctx: TurnContext) {
   const registrar_decisao = createTool({
     id: "registrar_decisao",
     description:
-      "Registra o que você entendeu e o que vai fazer. Chame SEMPRE primeiro, antes de qualquer outra ferramenta ou resposta.",
+      "Registra o que você entendeu e o que vai fazer. Chame SEMPRE primeiro; a primeira ferramenta da ação pode vir na mesma resposta, depois desta.",
     inputSchema: z.object({
       entendimento: z.string().describe("O que a pessoa quer, numa frase"),
-      intencao: z.enum(INTENTS),
+      intencao: z
+        .enum(INTENTS)
+        .describe(
+          "duvida: pergunta que a central de ajuda pode responder; consultar_chamado: status/prazo; complementar_chamado: acrescentar informação a um chamado existente; abrir_chamado: problema ou pedido novo; confirmar_ou_editar_rascunho: resposta a um rascunho já mostrado; falar_com_analista; fora_do_escopo: não é TI; conversa: saudação ou agradecimento; nao_entendi",
+        ),
       acao: z.string().describe("O que você vai fazer agora"),
       confianca: z.number().min(0).max(1).describe("0 a 1: o quanto você tem certeza do que fazer"),
       motivo: z.string().describe("Por que essa ação, em uma ou duas frases"),
@@ -226,12 +258,26 @@ export function buildTools(ctx: TurnContext) {
             };
           }
         }
+        const missing = (Object.keys(FACT_QUESTIONS) as (keyof typeof FACT_QUESTIONS)[]).filter(
+          (k) => input[k] === "nao_informado",
+        );
+        if (missing.length > 0) {
+          return {
+            labels: ["verificou o que falta"],
+            summary: `faltam: ${missing.join(", ")}`,
+            output: {
+              faltando: missing.map((k) => FACT_QUESTIONS[k]),
+              instrucao:
+                "Ainda não monte o rascunho. Pergunte isso à pessoa numa mensagem só; para quem é afetado, use oferecer_opcoes.",
+            },
+          };
+        }
         const { priority, reason } = classifyPriority({
           type: input.tipo,
-          affected: input.afetados,
-          blocksWork: input.impede_trabalho,
-          deadlineToday: input.compromisso_hoje,
-          hasWorkaround: input.tem_alternativa,
+          affected: input.afetados as Affected,
+          blocksWork: input.impede_trabalho === "sim",
+          deadlineToday: input.compromisso_hoje === "sim",
+          hasWorkaround: input.tem_alternativa === "sim",
         });
         const dueAt = ticketDueAt(priority, now).toISOString();
         supersedePendingDrafts(ctx.conversation.id);
@@ -248,7 +294,7 @@ export function buildTools(ctx: TurnContext) {
           subcategory: input.subcategoria ?? null,
           priority,
           priorityReason: reason,
-          affected: input.afetados,
+          affected: input.afetados as Affected,
           note: null,
           dueAt,
           createdAt: now.toISOString(),
@@ -268,7 +314,7 @@ export function buildTools(ctx: TurnContext) {
             proximo_passo: "Peça para a pessoa conferir e confirmar. Não crie antes disso.",
           },
         };
-      }),
+      }, { writes: true }),
   });
 
   const preparar_atualizacao = createTool({
@@ -320,7 +366,7 @@ export function buildTools(ctx: TurnContext) {
           cards: [{ kind: "draft", draft }],
           output: { rascunho_id: draft.id, operacao: draft.kind, chamado: t.id, proximo_passo: "Peça para a pessoa confirmar." },
         };
-      }),
+      }, { writes: true }),
   });
 
   const confirmar_rascunho = createTool({
@@ -354,7 +400,7 @@ export function buildTools(ctx: TurnContext) {
           cards: [result.card],
           output: { chamado: result.ticket.id, mensagem_sugerida: result.text },
         };
-      }),
+      }, { writes: true }),
   });
 
   const cancelar_rascunho = createTool({
@@ -369,7 +415,7 @@ export function buildTools(ctx: TurnContext) {
         }
         saveDraft({ ...draft, status: "cancelado" });
         return { labels: ["descartou o rascunho"], summary: `${draft.id} cancelado`, output: { ok: true } };
-      }),
+      }, { writes: true }),
   });
 
   const oferecer_opcoes = createTool({
@@ -416,7 +462,7 @@ export function buildTools(ctx: TurnContext) {
           cards: [result.card],
           output: { fila: `Suporte ${result.queue}`, mensagem_sugerida: result.text },
         };
-      }),
+      }, { writes: true }),
   });
 
   return {

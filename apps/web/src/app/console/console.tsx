@@ -22,6 +22,7 @@ import { logout } from "@/app/login/actions";
 import { NexoMark } from "@/components/nexo-mark";
 import { AgentStatusLine } from "@/components/decision";
 import { DraftCard, HandoffCard, TicketCard, TicketListCard, cardKey } from "@/components/cards";
+import { RichText } from "@/components/rich-text";
 
 // Console do analista (Telas 4 e 5): conversas, histórico com as decisões do
 // agent, assumir/devolver/encerrar e os chamados do funcionário.
@@ -403,7 +404,9 @@ function ConversationView({
                       isAgent ? "bg-agent-bubble" : "bg-human-bubble"
                     }`}
                   >
-                    <span className="whitespace-pre-wrap">{m.text}</span>
+                    <span className="whitespace-pre-wrap">
+                      <RichText text={m.text} />
+                    </span>
                     <span className="shrink-0 text-[11px] text-ink-3">{time(m.createdAt)}</span>
                   </p>
                 )}

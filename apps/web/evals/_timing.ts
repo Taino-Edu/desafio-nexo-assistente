@@ -1,0 +1,20 @@
+import { EMPLOYEES } from "@nexo/shared";
+import { useTestDb } from "@/server/db";
+import { createSession } from "@/server/store";
+import { runTurn } from "@/server/agent/run-turn";
+import { createApp } from "../../tickets/src/app";
+import { Chaos } from "../../tickets/src/chaos";
+import { TicketRepo } from "../../tickets/src/repo";
+import { seed } from "../../tickets/src/seed";
+useTestDb();
+const repo = new TicketRepo(":memory:"); seed(repo);
+const app = createApp({ repo, chaos: new Chaos({ outageChance: 0, outageMs: 0, latencyMs: [0, 0] }), serviceToken: process.env.TICKETS_SERVICE_TOKEN!, sleep: async () => {} });
+const employee = EMPLOYEES[0]!;
+const sessionId = createSession(employee.id, "employee");
+const t0 = Date.now();
+await runTurn({ employee, sessionId, text: process.argv[2] ?? "Qual o status do meu chamado?", emit: (e) => {
+  const t = ((Date.now() - t0) / 1000).toFixed(1);
+  if (e.t === "text") return;
+  if (e.t === "done") console.log(t, "done", e.decision.model, e.decision.inputTokens, e.decision.outputTokens, "|", e.message.text);
+  else console.log(t, e.t, JSON.stringify(e).slice(0, 120));
+} }, { tickets: { fetchImpl: ((u: string, i?: RequestInit) => app.request(u, i)) as typeof fetch } });

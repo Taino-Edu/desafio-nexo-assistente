@@ -11,7 +11,8 @@ nextEnv.loadEnvConfig(resolve(process.cwd(), "../.."), process.env.NODE_ENV !== 
 
 const schema = z.object({
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().default(""),
-  NEXO_MODEL: z.string().default("gemini-2.5-flash"),
+  NEXO_MODEL: z.string().default("gemini-flash-lite-latest"),
+  NEXO_FALLBACK_MODEL: z.string().default("gemini-3.5-flash"),
   NEXO_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.6),
   SESSION_SECRET: z.string().min(16, "SESSION_SECRET precisa de pelo menos 16 caracteres"),
   WEB_DB_PATH: z.string().default("../../data/web.db"),

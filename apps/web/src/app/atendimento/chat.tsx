@@ -7,6 +7,7 @@ import { time } from "@/lib/format";
 import { TopBar } from "@/components/employee-shell";
 import { AgentStatusLine } from "@/components/decision";
 import { DraftCard, HandoffCard, OptionsCard, TicketCard, TicketListCard, cardKey } from "@/components/cards";
+import { RichText } from "@/components/rich-text";
 
 export type ChatState = {
   conversation: { id: string; status: ConversationStatus; transferDeadline: string | null };
@@ -65,6 +66,12 @@ export function Chat({ initial }: { initial: ChatState }) {
       setError(null);
       setInput("");
       setLive({ labels: [], text: "", cards: [] });
+      // Mostra a mensagem na hora; o servidor devolve a versão gravada.
+      const optimisticId = `local-${Date.now()}`;
+      setMessages((m) => [
+        ...m,
+        { id: optimisticId, conversationId: "", role: "employee", authorName: null, text: value, cards: [], decisionId: null, createdAt: new Date().toISOString() },
+      ]);
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
@@ -88,6 +95,7 @@ export function Chat({ initial }: { initial: ChatState }) {
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Falha de conexão.");
+        setMessages((m) => m.filter((x) => x.id !== optimisticId));
         setInput(value);
       } finally {
         setLive(null);
@@ -97,7 +105,7 @@ export function Chat({ initial }: { initial: ChatState }) {
       function handle(e: StreamEvent) {
         switch (e.t) {
           case "user":
-            setMessages((m) => [...m, e.message]);
+            setMessages((m) => m.map((x) => (x.id === optimisticId ? e.message : x)));
             setSession((s) => ({ ...s, used: s.used + 1 }));
             break;
           case "step":
@@ -219,7 +227,11 @@ export function Chat({ initial }: { initial: ChatState }) {
         <AgentStatusLine decision={decision} liveLabels={liveLabels} />
         {(m.text || options) && (
           <div className="flex w-fit max-w-[600px] flex-col gap-3 rounded-[4px_12px_12px_12px] border border-rule bg-paper px-4 py-3">
-            {m.text && <p className="text-[14.5px] leading-normal whitespace-pre-wrap">{m.text}</p>}
+            {m.text && (
+              <p className="text-[14.5px] leading-normal whitespace-pre-wrap">
+                <RichText text={m.text} />
+              </p>
+            )}
             {options && (
               <OptionsCard
                 question={options.question}

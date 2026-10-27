@@ -6,7 +6,8 @@ import { isOpen, type Category, type TicketView } from "./domain";
 // ela só sugere um candidato, e o agent confirma com o funcionário.
 
 const REOPEN_WINDOW_DAYS = 7;
-const MIN_SIMILARITY = 0.25;
+const MIN_SIMILARITY = 0.3;
+const MIN_COMMON_WORDS = 2;
 
 const STOPWORDS = new Set(
   "a o e de da do das dos em no na nos nas um uma uns umas para por com sem que se meu minha meus minhas não nao está esta ao aos à às é foi ser após apos desde".split(
@@ -19,19 +20,30 @@ export function keywords(text: string): Set<string> {
     text
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
+      .replace(/[\u0300-\u036f]/g, "")
       .split(/[^a-z0-9]+/)
-      .filter((w) => w.length > 2 && !STOPWORDS.has(w)),
+      .filter((w) => w.length >= 3 && !STOPWORDS.has(w)),
   );
 }
 
-export function similarity(a: string, b: string): number {
-  const ka = keywords(a);
-  const kb = keywords(b);
-  if (ka.size === 0 || kb.size === 0) return 0;
-  let common = 0;
-  for (const w of ka) if (kb.has(w)) common++;
-  return common / Math.min(ka.size, kb.size);
+/**
+ * Duas palavras "batem" se uma começa com a outra, olhando no máximo os 5
+ * primeiros caracteres: um radical pobre, mas suficiente para "cai/caindo",
+ * "reconectar/reconectando" e "lento/lentidão".
+ */
+function sameRoot(a: string, b: string): boolean {
+  const ra = a.slice(0, 5);
+  const rb = b.slice(0, 5);
+  return ra.startsWith(rb) || rb.startsWith(ra);
+}
+
+/** Proporção de palavras em comum (sobre o texto menor) e quantas são. */
+export function similarity(a: string, b: string): { score: number; common: number } {
+  const ka = [...keywords(a)];
+  const kb = [...keywords(b)];
+  if (ka.length === 0 || kb.length === 0) return { score: 0, common: 0 };
+  const common = ka.filter((w) => kb.some((v) => sameRoot(w, v))).length;
+  return { score: common / Math.min(ka.length, kb.length), common };
 }
 
 export type DuplicateMatch = {
@@ -58,8 +70,9 @@ export function findDuplicate(
     } else {
       continue;
     }
-    const score = similarity(text, `${t.title} ${t.description}`);
-    if (score >= MIN_SIMILARITY && (!best || score > best.similarity)) {
+    // Uma palavra só ("notebook") não basta: "não liga" e "lento" são problemas diferentes.
+    const { score, common } = similarity(text, `${t.title} ${t.description}`);
+    if (score >= MIN_SIMILARITY && common >= MIN_COMMON_WORDS && (!best || score > best.similarity)) {
       best = { ticket: t, kind, similarity: Number(score.toFixed(2)) };
     }
   }
