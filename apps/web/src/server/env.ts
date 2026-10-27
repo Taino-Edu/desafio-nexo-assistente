@@ -1,10 +1,10 @@
 import "server-only";
 import { resolve } from "node:path";
-import { loadEnvConfig } from "@next/env";
+import nextEnv from "@next/env";
 import { z } from "zod";
 
 // Um único .env na raiz do monorepo serve aos dois apps.
-loadEnvConfig(resolve(process.cwd(), "../.."), process.env.NODE_ENV !== "production");
+nextEnv.loadEnvConfig(resolve(process.cwd(), "../.."), process.env.NODE_ENV !== "production");
 
 // Configuração validada uma vez. Chaves ficam só no servidor: nada aqui é
 // prefixado com NEXT_PUBLIC_, então não vai para o navegador.
