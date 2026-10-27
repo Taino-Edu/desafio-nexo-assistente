@@ -1,0 +1,23 @@
+{
+  "name": "nexo-assist",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n tickets,web -c blue,green \"pnpm --filter @nexo/tickets dev\" \"pnpm --filter @nexo/web dev\"",
+    "build": "pnpm -r build",
+    "start": "concurrently -k -n tickets,web -c blue,green \"pnpm --filter @nexo/tickets start\" \"pnpm --filter @nexo/web start\"",
+    "test": "vitest run",
+    "typecheck": "pnpm -r typecheck",
+    "eval": "pnpm --filter @nexo/web eval",
+    "reset-data": "node scripts/reset-data.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.5"
+  }
+}
