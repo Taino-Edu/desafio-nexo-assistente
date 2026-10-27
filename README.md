@@ -123,7 +123,7 @@ Cada mensagem do funcionário gera um **turno**:
 
 **Gemini Flash-Lite** como principal e **Gemini 3.5 Flash** como reserva (`NEXO_MODEL` e `NEXO_FALLBACK_MODEL`):
 
-- Escolhi pelo `pnpm eval`: o Flash-Lite respondeu em **2 a 7 s por turno**, contra 13 a 16 s do 3.5 Flash, com o mesmo acerto nos cenários. Num chat isso pesa, e o custo por conversa é menor.
+- Escolhi pelo `pnpm eval`: o Flash-Lite respondeu em **2 a 8 s por turno** na maioria dos casos (com picos de cerca de 12 s quando o Google está carregado), contra 13 a 16 s do 3.5 Flash. Num chat isso pesa, e o custo por conversa é menor.
 - O raciocínio interno fica no nível mínimo, porque o trabalho pesado de regra está no código, não no modelo.
 - Se o principal falhar ou demorar mais de 15 s para começar a responder (sobrecarga acontece), o Mastra passa para o reserva no mesmo turno. A decisão registra qual modelo respondeu de fato.
 - O Mastra deixa trocar de provedor mudando uma linha.
@@ -153,7 +153,7 @@ Cada mensagem do funcionário gera um **turno**:
 - **Avaliação com o modelo real** (`pnpm eval`).
   - São 12 cenários do PRD: dúvida resolvida pela central, erro 809 no Windows 10 (resolve) e no 11 (abre chamado), status sem número, chamado vencido, privacidade, RH fora do escopo, pedido de analista, duplicidade, reabertura, complemento e abertura em três turnos.
   - Cada cenário confere intenção, ferramentas usadas ou proibidas e o texto final.
-  - É o que eu rodo ao mexer no prompt ou trocar o modelo. A última rodada passou nos **12 de 12** cenários.
+  - É o que eu rodo ao mexer no prompt ou trocar o modelo. A última rodada passou nos **12 de 12** cenários (cerca de 133 mil tokens de entrada no total).
   - Ela já pegou problemas reais, corrigidos com teste:
     - a duplicidade não reconhecia "VPN caindo" como o mesmo problema de "VPN cai a cada 10 minutos";
     - o modelo supunha quem era afetado em vez de perguntar. Por isso `preparar_rascunho` passou a aceitar "não informado" e a devolver o que falta perguntar.
