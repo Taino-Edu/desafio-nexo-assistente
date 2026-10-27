@@ -240,9 +240,21 @@ export function addMessage(input: {
 
 export function listMessages(conversationId: string, limit = 300): ChatMessage[] {
   const rows = db()
-    .prepare("SELECT * FROM (SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?) ORDER BY created_at, rowid")
+    .prepare("SELECT * FROM (SELECT *, rowid AS seq FROM messages WHERE conversation_id = ? ORDER BY created_at DESC, seq DESC LIMIT ?) ORDER BY created_at, seq")
     .all(conversationId, limit) as MessageRow[];
   return rows.map(toMessage);
+}
+
+/** O cartão guarda o rascunho como foi mostrado; aqui ele recebe o status atual. */
+export function withLiveDrafts(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((m) =>
+    m.cards.some((c) => c.kind === "draft")
+      ? {
+          ...m,
+          cards: m.cards.map((c) => (c.kind === "draft" ? { ...c, draft: getDraft(c.draft.id) ?? c.draft } : c)),
+        }
+      : m,
+  );
 }
 
 // --- decisões ----------------------------------------------------------------

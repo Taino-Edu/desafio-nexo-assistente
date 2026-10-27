@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { Agent } from "@mastra/core/agent";
+import type { MastraModelConfig } from "@mastra/core/llm";
 import type { Employee } from "@nexo/shared";
 import type { Decision, DecisionOutcome, StreamEvent } from "@/lib/types";
 import { env } from "../env";
@@ -15,7 +16,7 @@ import {
   saveDecision,
 } from "../store";
 import { handoff } from "../service-desk";
-import { ticketsClient } from "../tickets-client";
+import { ticketsClient, type TicketsClientOptions } from "../tickets-client";
 import type { TurnContext } from "./context";
 import { INSTRUCTIONS } from "./instructions";
 import { toModelMessages, turnContext } from "./history";
@@ -34,13 +35,22 @@ function thinkingOptions(model: string) {
   return { thinkingConfig: { thinkingLevel: "low" as const } };
 }
 
-export async function runTurn(input: {
-  employee: Employee;
-  sessionId: string;
-  text: string;
-  emit: (event: StreamEvent) => void;
-  now?: () => Date;
-}): Promise<void> {
+/** Dependências trocáveis nos testes (modelo roteirizado, legado em memória). */
+export type TurnDeps = {
+  model?: unknown;
+  tickets?: TicketsClientOptions;
+};
+
+export async function runTurn(
+  input: {
+    employee: Employee;
+    sessionId: string;
+    text: string;
+    emit: (event: StreamEvent) => void;
+    now?: () => Date;
+  },
+  deps: TurnDeps = {},
+): Promise<void> {
   const { employee, emit } = input;
   const now = input.now ?? (() => new Date());
   const config = env();
@@ -88,7 +98,7 @@ export async function runTurn(input: {
   };
   ctx.client = ticketsClient(
     { kind: "employee", id: employee.id },
-    { onRetry: (attempt, reason) => ctx.retries.push(`${attempt}ª falhou (${reason})`) },
+    { ...deps.tickets, onRetry: (attempt, reason) => ctx.retries.push(`${attempt}ª falhou (${reason})`) },
   );
 
   const started = Date.now();
@@ -97,7 +107,7 @@ export async function runTurn(input: {
   let outputTokens = 0;
   let failure: string | null = null;
 
-  if (!config.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (!deps.model && !config.GOOGLE_GENERATIVE_AI_API_KEY) {
     failure = "GOOGLE_GENERATIVE_AI_API_KEY não configurada";
   } else {
     const agent = new Agent({
@@ -105,7 +115,10 @@ export async function runTurn(input: {
       name: "Nexo Assist",
       instructions: INSTRUCTIONS,
       // Roteador de modelos do Mastra: "provedor/modelo" com a chave explícita.
-      model: { id: `google/${config.NEXO_MODEL}` as `${string}/${string}`, apiKey: config.GOOGLE_GENERATIVE_AI_API_KEY },
+      model: (deps.model as MastraModelConfig | undefined) ?? {
+        id: `google/${config.NEXO_MODEL}` as `${string}/${string}`,
+        apiKey: config.GOOGLE_GENERATIVE_AI_API_KEY,
+      },
       tools: buildTools(ctx),
     });
 
@@ -196,7 +209,7 @@ export async function runTurn(input: {
     missingInfo: ctx.decision?.missingInfo ?? [],
     steps: ctx.steps,
     outcome,
-    model: config.NEXO_MODEL,
+    model: deps.model ? "roteiro-de-teste" : config.NEXO_MODEL,
     inputTokens,
     outputTokens,
     latencyMs: Date.now() - started,

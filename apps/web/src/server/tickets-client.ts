@@ -29,7 +29,7 @@ export class TicketConflictError extends Error {
 
 export type Actor = { kind: "employee" | "analyst"; id: string };
 
-type Options = {
+export type TicketsClientOptions = {
   baseUrl?: string;
   token?: string;
   /** Espera antes de cada nova tentativa (ms). */
@@ -44,7 +44,7 @@ type Options = {
 const ticketsResponse = z.object({ tickets: z.array(ticketViewSchema) });
 const ticketResponse = z.object({ ticket: ticketViewSchema });
 
-export function ticketsClient(actor: Actor, opts: Options = {}) {
+export function ticketsClient(actor: Actor, opts: TicketsClientOptions = {}) {
   const baseUrl = opts.baseUrl ?? env().TICKETS_URL;
   const token = opts.token ?? env().TICKETS_SERVICE_TOKEN;
   const backoff = opts.backoff ?? [500, 1200, 2500];

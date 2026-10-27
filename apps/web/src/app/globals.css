@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/* Tokens do protótipo (Anexo C). Os nomes seguem as variáveis do arquivo .pen. */
+@theme {
+  --color-paper: #ffffff;
+  --color-desk: #f6f7f9;
+  --color-convo: #eef1f5;
+  --color-ink: #1b2431;
+  --color-ink-2: #3d4656;
+  --color-ink-3: #5b6472;
+  --color-rule: #e6e8ec;
+  --color-line: #1b24311f;
+  --color-cta: #0062c4;
+  --color-cta-hover: #0055ab;
+  --color-primary: #0285f7;
+  --color-primary-soft: #0285f712;
+  --color-primary-text: #0069c7;
+  --color-agent-bubble: #e6effa;
+  --color-human-bubble: #e3f4ea;
+  --color-avatar: #dce9f7;
+  --color-success: #00bd6c;
+  --color-success-soft: #00bd6c14;
+  --color-success-text: #00804a;
+  --color-warning: #f5a500;
+  --color-warning-soft: #f5a50018;
+  --color-warning-text: #946300;
+  --color-danger: #ee343b;
+  --color-danger-soft: #ee343b12;
+  --color-danger-text: #c4161d;
+  --color-violet: #a37aff;
+  --color-violet-soft: #a37aff16;
+  --color-violet-text: #6b3fe0;
+
+  --font-ui: var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-data: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-ui);
+  color: var(--color-ink);
+  background: var(--color-paper);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Barra de rolagem discreta nas colunas. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #1b243122 transparent;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+.typing-dot {
+  animation: blink 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }

@@ -200,15 +200,15 @@ importers:
 
   apps/web:
     dependencies:
-      '@ai-sdk/google':
-        specifier: ^4.0.106
-        version: 4.0.106(zod@4.6.7)
       '@mastra/core':
         specifier: ^1.79.0
         version: 1.79.0(rxjs@7.8.2)(supports-color@10.2.2)(zod@4.6.7)
       '@nexo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@next/env':
+        specifier: ^16.4.3
+        version: 16.4.3
       lucide-react:
         specifier: ^1.0.0
         version: 1.61.0(@types/react@19.3.0)(react@19.3.1)
@@ -228,9 +228,6 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
-      '@next/env':
-        specifier: ^16.4.3
-        version: 16.4.3
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -288,12 +285,6 @@ packages:
       express:
         optional: true
 
-  '@ai-sdk/google@4.0.106':
-    resolution: {integrity: sha512-8wKBFmG6ykBYrqFO7gZIg3xqeJvDMAxrSKgg21f7442z3wnAjJJ/mP3EWo5/WuG0iwezuHM8GmixwMRwkD0fdg==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
   '@ai-sdk/provider-utils@4.0.61':
     resolution: {integrity: sha512-spROQutwsgm9ezXdoKP5PUPuHnNqMnuFqjioihmYDMJaaJnknYiEXYctH9hL4NJjaHuQBIl4ageCNsIZrQ+yCg==}
     engines: {node: '>=18.17'}
@@ -302,12 +293,6 @@ packages:
 
   '@ai-sdk/provider-utils@5.0.62':
     resolution: {integrity: sha512-//6sHa6QNQdM2KHOg5pxp1UMFQB4U8cqdw/kSm9BMr0DLeaFgG3TXZfxhpwRZmxgBpOrzMVZ/gwLXH309+Ortw==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/provider-utils@5.0.69':
-    resolution: {integrity: sha512-oGCXIoBKLpNrrAzJvltFHdBl20FJMyT+7edD9D4nwxoI8Scbj3y1EgKzjoF2XFhNYkMTcv1oTFDgUzLxdjqSKg==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -322,10 +307,6 @@ packages:
 
   '@ai-sdk/provider@4.0.29':
     resolution: {integrity: sha512-nV7UpLADtKn9f0xfnxVZAeFEKuNkScJv5rOpHL7qeWe2EwEEBa3pd6P0QVK6D6coCJ0E8FyCgoM50AffTYrzDQ==}
-    engines: {node: '>=22'}
-
-  '@ai-sdk/provider@4.0.34':
-    resolution: {integrity: sha512-Ip7ZQBq/FiGpM1mmOVseTtX9PBjnzo0bLC41WTgBSBBRUBz6LhNFGbYaNUzI6hPm6ll1oNSPOAZc/q/z+3QZEQ==}
     engines: {node: '>=22'}
 
   '@alloc/quick-lru@5.3.0':
@@ -2053,12 +2034,6 @@ snapshots:
       jose: 6.2.13
       uuid: 11.1.1
 
-  '@ai-sdk/google@4.0.106(zod@4.6.7)':
-    dependencies:
-      '@ai-sdk/provider': 4.0.34
-      '@ai-sdk/provider-utils': 5.0.69(zod@4.6.7)
-      zod: 4.6.7
-
   '@ai-sdk/provider-utils@4.0.61(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 3.0.19
@@ -2076,15 +2051,6 @@ snapshots:
       undici: 7.30.1
       zod: 4.6.7
 
-  '@ai-sdk/provider-utils@5.0.69(zod@4.6.7)':
-    dependencies:
-      '@ai-sdk/provider': 4.0.34
-      '@standard-schema/spec': 1.1.0
-      '@workflow/serde': 4.1.0
-      eventsource-parser: 3.1.1
-      undici: 7.30.1
-      zod: 4.6.7
-
   '@ai-sdk/provider@2.0.5':
     dependencies:
       json-schema: 0.4.0
@@ -2094,10 +2060,6 @@ snapshots:
       json-schema: 0.4.0
 
   '@ai-sdk/provider@4.0.29':
-    dependencies:
-      json-schema: 0.4.0
-
-  '@ai-sdk/provider@4.0.34':
     dependencies:
       json-schema: 0.4.0
 
