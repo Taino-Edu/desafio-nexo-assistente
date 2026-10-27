@@ -1,3 +1,10 @@
 packages:
   - apps/*
   - packages/*
+minimumReleaseAgeExclude:
+  - '@ai-sdk/google@4.0.106'
+  - '@ai-sdk/provider-utils@5.0.69'
+allowBuilds:
+  esbuild: true
+  sharp: true
+  "@tailwindcss/oxide": true

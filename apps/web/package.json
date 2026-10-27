@@ -1,0 +1,32 @@
+{
+  "name": "@nexo/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "tsc -p tsconfig.json",
+    "eval": "tsx --disable-warning=ExperimentalWarning --env-file-if-exists=../../.env evals/run.ts"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.79.0",
+    "@nexo/shared": "workspace:*",
+    "lucide-react": "^1.0.0",
+    "next": "^16.4.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@next/env": "^16.4.3",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15"
+  }
+}
