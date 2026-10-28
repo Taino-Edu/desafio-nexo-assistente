@@ -1,0 +1,17 @@
+# Para servir o app por um Cloudflare Tunnel que já roda em outro projeto do
+# Compose: o contêiner entra também na rede do cloudflared, com o nome "nexo",
+# e a regra de ingress do túnel aponta para http://nexo:3000.
+# Uso, no .env:
+#   COMPOSE_FILE=docker-compose.yml:deploy/compose.tunnel.yml
+#   TUNNEL_NETWORK=<rede Docker do cloudflared>
+services:
+  nexo-assist:
+    networks:
+      default:
+      tunnel:
+        aliases: [nexo]
+
+networks:
+  tunnel:
+    external: true
+    name: ${TUNNEL_NETWORK:?defina TUNNEL_NETWORK no .env}

@@ -179,6 +179,7 @@ docker compose up -d --build
 
 - A porta 3000 fica presa ao `127.0.0.1`; o Nginx (ou o Cloudflare Tunnel) faz o HTTPS na frente. O cookie de sessão é `Secure` em produção.
 - Sem proxy, para acessar direto por IP e porta em HTTP: `NEXO_BIND=0.0.0.0`, `NEXO_PORT=<porta>` e `COOKIE_SECURE=false` no `.env`.
+- Com um Cloudflare Tunnel já rodando em outro projeto (o caso da demonstração): `deploy/compose.tunnel.yml` coloca o contêiner na rede do `cloudflared` com o nome `nexo`; basta uma regra de ingress para `http://nexo:3000`. Nenhuma porta fica aberta para a internet.
 - **Proteção contra abuso e custo**:
   - 30 mensagens por sessão;
   - 12 mensagens por minuto por funcionário;
