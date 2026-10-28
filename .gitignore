@@ -9,3 +9,5 @@ data/
 *.tsbuildinfo
 next-env.d.ts
 coverage/
+.env.*
+!.env.example

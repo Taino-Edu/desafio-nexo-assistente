@@ -20,6 +20,8 @@ const schema = z.object({
   WEB_DB_PATH: z.string().default("../../data/web.db"),
   TICKETS_URL: z.string().url().default("http://127.0.0.1:4001"),
   TICKETS_SERVICE_TOKEN: z.string().min(1, "Defina TICKETS_SERVICE_TOKEN"),
+  /** Cookie só por HTTPS. Padrão: ligado em produção; desligue se o app for servido em HTTP puro. */
+  COOKIE_SECURE: z.enum(["true", "false"]).optional(),
 });
 
 export type Env = z.infer<typeof schema>;

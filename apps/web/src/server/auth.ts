@@ -42,7 +42,7 @@ export async function signIn(user: { role: "employee" | "analyst"; id: string },
   (await cookies()).set(COOKIE, `${sessionId}.${sign(sessionId)}`, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: env().COOKIE_SECURE ? env().COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
     path: "/",
     ...(remember ? { maxAge: 60 * 60 * 24 * 30 } : {}),
   });

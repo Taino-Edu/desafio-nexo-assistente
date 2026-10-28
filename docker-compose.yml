@@ -3,7 +3,9 @@ services:
     build: .
     env_file: .env
     ports:
-      - "127.0.0.1:3000:3000" # exposto só localmente; o Nginx/Cloudflare faz o HTTPS na frente
+      # Por padrão só localmente, com o Nginx/Cloudflare fazendo o HTTPS na frente.
+      # Para expor direto: NEXO_BIND=0.0.0.0 (e COOKIE_SECURE=false se não houver HTTPS).
+      - "${NEXO_BIND:-127.0.0.1}:${NEXO_PORT:-3000}:3000"
     volumes:
       - nexo-data:/app/data
     restart: unless-stopped

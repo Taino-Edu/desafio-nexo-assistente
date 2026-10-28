@@ -178,6 +178,7 @@ docker compose up -d --build
 ```
 
 - A porta 3000 fica presa ao `127.0.0.1`; o Nginx (ou o Cloudflare Tunnel) faz o HTTPS na frente. O cookie de sessão é `Secure` em produção.
+- Sem proxy, para acessar direto por IP e porta em HTTP: `NEXO_BIND=0.0.0.0`, `NEXO_PORT=<porta>` e `COOKIE_SECURE=false` no `.env`.
 - **Proteção contra abuso e custo**:
   - 30 mensagens por sessão;
   - 12 mensagens por minuto por funcionário;
